@@ -31,6 +31,10 @@ class IngestRequest(BaseModel):
     chunk_overlap: int = Field(default=200, description="Overlap between chunks", ge=0, le=1000)
     crawl: bool = Field(default=False, description="Whether to crawl website (for URLs)")
     max_depth: int = Field(default=2, description="Max crawl depth", ge=1, le=5)
+    
+    def model_post_init(self, __context):
+        """Strip whitespace from source after validation."""
+        self.source = self.source.strip()
 
 
 class EvaluateRequest(BaseModel):

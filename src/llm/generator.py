@@ -199,6 +199,64 @@ class OpenAIGenerator(LLMGenerator):
             raise
 
 
+class FallbackGenerator(LLMGenerator):
+    """
+    Fallback generator that formats retrieved documents without external LLM.
+    Perfect for demo/free tier usage.
+    """
+
+    def __init__(self):
+        """Initialize fallback generator."""
+        logger.info("FallbackGenerator initialized (no external LLM required)")
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        stream: bool = False
+    ) -> str:
+        """
+        Generate a formatted response from the prompt.
+        Extracts context from the prompt and formats it nicely.
+        """
+        # Extract context sections from the prompt
+        if "Context:" in prompt:
+            parts = prompt.split("Context:")
+            if len(parts) > 1:
+                context = parts[1].split("Question:")[0].strip()
+                if "Question:" in prompt:
+                    question = prompt.split("Question:")[1].strip()
+                else:
+                    question = "No specific question provided"
+                
+                # Format a nice response
+                response = f"Based on the provided documents, here's what I found:\n\n"
+                response += f"**Relevant Information:**\n\n{context}\n\n"
+                response += f"**Note:** This response is based on retrieved document excerpts. "
+                response += f"For more detailed analysis, consider using an LLM provider (OpenAI, Ollama, etc.)."
+                
+                return response
+        
+        # Default response if no context found
+        return "I retrieved some relevant documents, but couldn't format them properly. Please try rephrasing your question."
+
+    def chat(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        stream: bool = False
+    ) -> str:
+        """Generate response from chat messages."""
+        # Extract the last user message
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        if user_messages:
+            return self.generate(user_messages[-1].get("content", ""))
+        return "No user message found."
+
+
 class LLMGeneratorFactory:
     """Factory to create LLM generators."""
 
@@ -211,13 +269,15 @@ class LLMGeneratorFactory:
         Create LLM generator.
         
         Args:
-            provider: LLM provider (ollama, openai)
+            provider: LLM provider (ollama, openai, fallback)
             **kwargs: Additional arguments
         """
         if provider == "ollama":
             return OllamaGenerator(**kwargs)
         elif provider == "openai":
             return OpenAIGenerator(**kwargs)
+        elif provider == "fallback":
+            return FallbackGenerator()
         else:
             raise ValueError(f"Unknown LLM provider: {provider}")
 

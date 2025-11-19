@@ -39,7 +39,8 @@ llm:
   max_tokens: 1000
   streaming: true
   local_model: "llama2"  # Ollama model name
-  use_local: true  # Set to false to use OpenAI
+  use_local: false  # Set to false to use OpenAI or fallback mode
+  fallback_mode: true  # Return formatted results without LLM if API unavailable
 
 evaluation:
   metrics:

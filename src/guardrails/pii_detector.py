@@ -2,7 +2,10 @@
 
 import logging
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .content_filter import ContentFilter
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +130,7 @@ class SafetyChecker:
 
     def __init__(
         self,
-        content_filter: ContentFilter,
+        content_filter: "ContentFilter",
         pii_detector: PIIDetector
     ):
         """Initialize safety checker."""

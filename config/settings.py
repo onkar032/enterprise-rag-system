@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # LLM
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     ollama_base_url: str = Field(default="http://localhost:11434", env="OLLAMA_BASE_URL")
+    use_local_llm: bool = Field(default=False, env="USE_LOCAL_LLM")  # Set to False to use fallback mode
     
     # Embedding
     embedding_model: str = Field(

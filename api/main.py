@@ -118,11 +118,21 @@ async def startup():
             reranker = SimpleBM25Reranker() if settings.enable_reranking else None
         
         # Initialize LLM generator
-        llm_generator = LLMGeneratorFactory.create(
-            provider="ollama",
-            model_name="llama2",
-            base_url=settings.ollama_base_url
-        )
+        # Use fallback mode (no external LLM required - perfect for free demo)
+        try:
+            if hasattr(settings, 'use_local_llm') and not settings.use_local_llm:
+                logger.info("Using fallback generator (no external LLM)")
+                llm_generator = LLMGeneratorFactory.create(provider="fallback")
+            else:
+                logger.info("Attempting to use Ollama...")
+                llm_generator = LLMGeneratorFactory.create(
+                    provider="ollama",
+                    model_name="llama2",
+                    base_url=settings.ollama_base_url
+                )
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM, using fallback: {e}")
+            llm_generator = LLMGeneratorFactory.create(provider="fallback")
         
         # Initialize RAG pipeline
         rag_pipeline = RAGPipeline(
