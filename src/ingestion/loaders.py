@@ -105,7 +105,13 @@ class HTMLLoader(DocumentLoader):
             logger.info(f"Loading HTML: {source}")
             
             if source.startswith(('http://', 'https://')):
-                response = requests.get(source, timeout=30)
+                # Add proper User-Agent header
+                headers = {
+                    'User-Agent': 'RAG-Bot/1.0 (Educational Project; Python/Requests)',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                }
+                response = requests.get(source, timeout=30, headers=headers)
                 response.raise_for_status()
                 html_content = response.text
             else:
@@ -188,7 +194,13 @@ class WebsiteLoader(DocumentLoader):
             self.visited_urls.add(url)
             logger.debug(f"Crawling: {url} (depth={depth})")
 
-            response = requests.get(url, timeout=30)
+            # Add proper User-Agent header for Wikipedia and other sites
+            headers = {
+                'User-Agent': 'RAG-Bot/1.0 (Educational Project; Python/Requests)',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+            }
+            response = requests.get(url, timeout=30, headers=headers)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'lxml')
