@@ -77,7 +77,7 @@ class ChromaVectorStore(VectorStore):
             
             # Convert metadata values to strings (ChromaDB requirement)
             processed_metadatas = []
-            for metadata in metadatas:
+            for i, metadata in enumerate(metadatas):
                 processed = {}
                 for key, value in metadata.items():
                     if isinstance(value, (list, dict)):
@@ -86,6 +86,8 @@ class ChromaVectorStore(VectorStore):
                         processed[key] = ""
                     else:
                         processed[key] = str(value)
+                # Store the ChromaDB ID in metadata for later retrieval
+                processed['chroma_id'] = ids[i]
                 processed_metadatas.append(processed)
             
             # Add to collection
@@ -206,8 +208,17 @@ class ChromaVectorStore(VectorStore):
         if not initial_results:
             return []
         
-        # Extract embeddings (we need to query them separately)
-        ids = [meta.get('id', '') for _, _, meta in initial_results]
+        # Extract ChromaDB IDs from metadata
+        ids = [meta.get('chroma_id') for _, _, meta in initial_results]
+        
+        # Filter out None values
+        valid_indices = [i for i, id in enumerate(ids) if id is not None]
+        if not valid_indices:
+            # If no valid IDs, return initial results without MMR
+            return initial_results[:k]
+        
+        ids = [ids[i] for i in valid_indices]
+        initial_results = [initial_results[i] for i in valid_indices]
         
         # Get embeddings for the fetched documents
         results = self.collection.get(
