@@ -1,0 +1,312 @@
+Python Best Practices for Production Code
+
+Introduction
+
+Python has become one of the most popular programming languages, particularly in data science, machine learning, and web development. However, writing Python code that works is different from writing Python code that works well in production. This guide covers essential best practices for professional Python development.
+
+Code Structure and Organization
+
+Project Structure
+A well-organized project structure is crucial for maintainability:
+
+project/
+├── src/
+│   ├── __init__.py
+│   ├── module1/
+│   └── module2/
+├── tests/
+├── docs/
+├── requirements.txt
+├── setup.py
+└── README.md
+
+This structure separates source code, tests, and documentation clearly.
+
+Module Design
+Keep modules focused on a single responsibility. A module should be cohesive, with related functionality grouped together. Avoid circular dependencies by carefully designing module hierarchies.
+
+Package Management
+Use virtual environments for every project:
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+Pin dependencies with specific versions in requirements.txt:
+fastapi==0.104.1
+pydantic==2.5.0
+
+Use requirements-dev.txt for development dependencies like pytest and black.
+
+Code Style and Formatting
+
+PEP 8 Compliance
+Follow PEP 8, Python's style guide. Key points:
+- Use 4 spaces for indentation (never tabs)
+- Limit lines to 79 characters for code, 72 for docstrings
+- Use blank lines to separate functions and classes
+- Import statements at the top of the file
+
+Naming Conventions
+- Classes: CamelCase (MyClass)
+- Functions and variables: snake_case (my_function, my_variable)
+- Constants: UPPER_CASE (MAX_CONNECTIONS)
+- Private members: _leading_underscore (_internal_method)
+
+Automated Formatting
+Use tools like Black for consistent formatting:
+black .
+
+And flake8 for style checking:
+flake8 src/
+
+Type Hints
+
+Python 3.5+ supports type hints, which improve code clarity and enable static type checking:
+
+def process_data(
+    items: list[str],
+    batch_size: int = 100
+) -> dict[str, int]:
+    """Process items in batches."""
+    result: dict[str, int] = {}
+    for item in items:
+        result[item] = len(item)
+    return result
+
+Use mypy for static type checking:
+mypy src/
+
+Documentation
+
+Docstrings
+Every module, class, and function should have a docstring:
+
+def calculate_similarity(
+    vector1: list[float],
+    vector2: list[float]
+) -> float:
+    """
+    Calculate cosine similarity between two vectors.
+    
+    Args:
+        vector1: First vector
+        vector2: Second vector
+        
+    Returns:
+        Similarity score between 0 and 1
+        
+    Raises:
+        ValueError: If vectors have different lengths
+        
+    Example:
+        >>> calculate_similarity([1, 2, 3], [4, 5, 6])
+        0.9746
+    """
+    if len(vector1) != len(vector2):
+        raise ValueError("Vectors must have same length")
+    # Implementation here
+
+Use Google, NumPy, or Sphinx style consistently throughout your project.
+
+Error Handling
+
+Specific Exceptions
+Catch specific exceptions rather than bare except:
+
+# Bad
+try:
+    result = process_data(data)
+except:
+    print("Error occurred")
+
+# Good
+try:
+    result = process_data(data)
+except ValueError as e:
+    logger.error(f"Invalid data: {e}")
+except IOError as e:
+    logger.error(f"File error: {e}")
+
+Custom Exceptions
+Create custom exceptions for domain-specific errors:
+
+class DocumentNotFoundError(Exception):
+    """Raised when a document cannot be found."""
+    pass
+
+class InvalidChunkSizeError(ValueError):
+    """Raised when chunk size is invalid."""
+    pass
+
+Context Managers
+Use context managers for resource management:
+
+with open('file.txt', 'r') as f:
+    content = f.read()
+
+# File is automatically closed
+
+Testing
+
+Unit Tests
+Write comprehensive unit tests:
+
+import pytest
+
+def test_calculate_similarity():
+    result = calculate_similarity([1, 2], [3, 4])
+    assert 0 <= result <= 1
+
+def test_calculate_similarity_invalid_length():
+    with pytest.raises(ValueError):
+        calculate_similarity([1, 2], [3, 4, 5])
+
+Test Coverage
+Aim for high test coverage:
+pytest --cov=src --cov-report=html
+
+Fixtures
+Use fixtures for test setup:
+
+@pytest.fixture
+def sample_data():
+    return {"key": "value"}
+
+def test_process_data(sample_data):
+    result = process_data(sample_data)
+    assert result is not None
+
+Performance Optimization
+
+Use Built-in Functions
+Built-in functions are implemented in C and faster:
+
+# Slower
+sum_value = 0
+for item in items:
+    sum_value += item
+
+# Faster
+sum_value = sum(items)
+
+List Comprehensions
+Use comprehensions for concise, fast code:
+
+# Create list
+squares = [x**2 for x in range(10)]
+
+# Filter list
+evens = [x for x in range(10) if x % 2 == 0]
+
+# Dictionary comprehension
+word_lengths = {word: len(word) for word in words}
+
+Generators for Large Data
+Use generators for memory efficiency:
+
+def read_large_file(file_path):
+    """Generator for reading large files line by line."""
+    with open(file_path, 'r') as f:
+        for line in f:
+            yield line.strip()
+
+Async/Await for I/O
+Use async for I/O-bound operations:
+
+import asyncio
+import aiohttp
+
+async def fetch_data(url: str) -> dict:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.json()
+
+Security
+
+Input Validation
+Always validate user input:
+
+from pydantic import BaseModel, validator
+
+class UserInput(BaseModel):
+    username: str
+    age: int
+    
+    @validator('age')
+    def check_age(cls, v):
+        if v < 0 or v > 150:
+            raise ValueError('Invalid age')
+        return v
+
+Secrets Management
+Never hardcode secrets:
+
+# Bad
+API_KEY = "sk-1234567890"
+
+# Good
+import os
+API_KEY = os.getenv('API_KEY')
+if not API_KEY:
+    raise ValueError("API_KEY not set")
+
+SQL Injection Prevention
+Use parameterized queries:
+
+# Bad
+query = f"SELECT * FROM users WHERE id = {user_id}"
+
+# Good
+query = "SELECT * FROM users WHERE id = %s"
+cursor.execute(query, (user_id,))
+
+Logging
+
+Structured Logging
+Use Python's logging module:
+
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+logger.info("Processing started")
+logger.warning("Unusual condition detected")
+logger.error("Operation failed", exc_info=True)
+
+Log Levels
+- DEBUG: Detailed information for diagnosing problems
+- INFO: Confirmation that things are working
+- WARNING: Indication of a potential problem
+- ERROR: A serious problem occurred
+- CRITICAL: A very serious error
+
+Dependency Management
+
+Use pip-tools
+Generate locked dependencies:
+
+pip-compile requirements.in > requirements.txt
+
+Virtual Environments
+Always use virtual environments:
+python -m venv venv
+source venv/bin/activate
+
+Package Distribution
+For distributable packages, use setup.py or pyproject.toml
+
+Conclusion
+
+Following these best practices leads to code that is:
+- More maintainable
+- Easier to debug
+- Better performing
+- More secure
+- Easier to test
+
+Remember that these are guidelines, not absolute rules. Adapt them to your specific needs and team conventions. The key is consistency and continuous improvement.
+

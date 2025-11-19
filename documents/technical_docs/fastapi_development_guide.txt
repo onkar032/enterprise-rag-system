@@ -1,0 +1,429 @@
+FastAPI Development Guide
+
+Introduction to FastAPI
+
+FastAPI is a modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints. It's built on top of Starlette for the web parts and Pydantic for the data parts, combining the best of both worlds.
+
+Key Features
+
+High Performance
+FastAPI is one of the fastest Python frameworks available, on par with NodeJS and Go. This performance comes from:
+- Starlette for async capabilities
+- Pydantic for data validation
+- Type hints for optimization
+
+Automatic Documentation
+FastAPI automatically generates interactive API documentation using:
+- Swagger UI (available at /docs)
+- ReDoc (available at /redoc)
+
+This documentation is always up-to-date with your code.
+
+Type Safety
+By using Python type hints, FastAPI provides:
+- Editor support with auto-completion
+- Data validation
+- Clear error messages
+- Reduced bugs
+
+Getting Started
+
+Basic Application
+Create a simple FastAPI application:
+
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="My API",
+    description="A sample API",
+    version="1.0.0"
+)
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int, q: str = None):
+    return {"item_id": item_id, "q": q}
+
+Running the Application
+Use uvicorn to run your FastAPI application:
+
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+The --reload flag enables auto-reload during development.
+
+Request and Response Models
+
+Pydantic Models
+Define request and response schemas using Pydantic:
+
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class Item(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    price: float = Field(..., gt=0)
+    tax: Optional[float] = None
+
+@app.post("/items/", response_model=Item)
+async def create_item(item: Item):
+    return item
+
+Validation
+Pydantic automatically validates:
+- Data types
+- Field constraints
+- Required vs optional fields
+- Custom validators
+
+Path Parameters
+
+Simple Path Parameters
+Extract values from the URL path:
+
+@app.get("/users/{user_id}")
+async def read_user(user_id: int):
+    return {"user_id": user_id}
+
+Path with Enum
+Use Enum for fixed path values:
+
+from enum import Enum
+
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
+
+@app.get("/models/{model_name}")
+async def get_model(model_name: ModelName):
+    return {"model_name": model_name}
+
+Query Parameters
+
+Basic Query Parameters
+Parameters not in the path become query parameters:
+
+@app.get("/items/")
+async def read_items(
+    skip: int = 0,
+    limit: int = 10,
+    q: Optional[str] = None
+):
+    return {"skip": skip, "limit": limit, "q": q}
+
+Required Query Parameters
+Make query parameters required by not providing a default:
+
+@app.get("/items/")
+async def read_items(q: str):
+    return {"q": q}
+
+Query Parameter Validation
+Use Query for advanced validation:
+
+from fastapi import Query
+
+@app.get("/items/")
+async def read_items(
+    q: str = Query(
+        None,
+        min_length=3,
+        max_length=50,
+        regex="^fixedquery$"
+    )
+):
+    return {"q": q}
+
+Request Body
+
+Multiple Body Parameters
+Accept multiple request body parameters:
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Item,
+    user: User,
+    importance: int = Body(...)
+):
+    return {
+        "item_id": item_id,
+        "item": item,
+        "user": user,
+        "importance": importance
+    }
+
+Nested Models
+Create complex nested structures:
+
+class Image(BaseModel):
+    url: str
+    name: str
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    images: Optional[list[Image]] = None
+
+Dependencies
+
+Dependency Injection
+FastAPI has a powerful dependency injection system:
+
+from fastapi import Depends
+
+async def common_parameters(
+    skip: int = 0,
+    limit: int = 100
+):
+    return {"skip": skip, "limit": limit}
+
+@app.get("/items/")
+async def read_items(
+    commons: dict = Depends(common_parameters)
+):
+    return commons
+
+Class Dependencies
+Use classes for dependencies:
+
+class CommonQueryParams:
+    def __init__(
+        self,
+        skip: int = 0,
+        limit: int = 100
+    ):
+        self.skip = skip
+        self.limit = limit
+
+@app.get("/items/")
+async def read_items(
+    commons: CommonQueryParams = Depends()
+):
+    return commons
+
+Error Handling
+
+HTTPException
+Raise HTTP exceptions:
+
+from fastapi import HTTPException
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    if item_id not in items:
+        raise HTTPException(
+            status_code=404,
+            detail="Item not found",
+            headers={"X-Error": "Custom error header"}
+        )
+    return {"item": items[item_id]}
+
+Custom Exception Handlers
+Create custom exception handlers:
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+class CustomException(Exception):
+    def __init__(self, name: str):
+        self.name = name
+
+@app.exception_handler(CustomException)
+async def custom_exception_handler(
+    request: Request,
+    exc: CustomException
+):
+    return JSONResponse(
+        status_code=418,
+        content={"message": f"Oops! {exc.name}"}
+    )
+
+Background Tasks
+
+Simple Background Tasks
+Execute tasks in the background:
+
+from fastapi import BackgroundTasks
+
+def write_log(message: str):
+    with open("log.txt", "a") as f:
+        f.write(message)
+
+@app.post("/send-notification/")
+async def send_notification(
+    email: str,
+    background_tasks: BackgroundTasks
+):
+    background_tasks.add_task(write_log, f"Email sent to {email}")
+    return {"message": "Email sent"}
+
+Middleware
+
+Custom Middleware
+Add custom middleware:
+
+from starlette.middleware.base import BaseHTTPMiddleware
+import time
+
+class TimingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = str(process_time)
+        return response
+
+app.add_middleware(TimingMiddleware)
+
+CORS Middleware
+Enable Cross-Origin Resource Sharing:
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+Testing
+
+Testing with TestClient
+Use TestClient for testing:
+
+from fastapi.testclient import TestClient
+
+client = TestClient(app)
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Hello World"}
+
+Async Tests
+For async endpoints:
+
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_read_items():
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        response = await ac.get("/items/")
+    assert response.status_code == 200
+
+Security
+
+OAuth2 with Password Flow
+Implement OAuth2 authentication:
+
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    # Verify credentials
+    return {"access_token": user.username, "token_type": "bearer"}
+
+@app.get("/users/me")
+async def read_users_me(token: str = Depends(oauth2_scheme)):
+    return {"token": token}
+
+JWT Tokens
+Use JWT for secure authentication:
+
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+
+SECRET_KEY = "your-secret-key"
+ALGORITHM = "HS256"
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+Performance Optimization
+
+Async Operations
+Use async for I/O operations:
+
+import httpx
+
+@app.get("/external-api")
+async def call_external_api():
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://api.example.com/data")
+        return response.json()
+
+Response Caching
+Implement caching for frequently accessed data:
+
+from functools import lru_cache
+
+@lru_cache()
+def get_settings():
+    return Settings()
+
+@app.get("/settings")
+async def read_settings(settings: Settings = Depends(get_settings)):
+    return settings
+
+Database Integration
+Use async database libraries:
+
+from databases import Database
+
+database = Database("postgresql://user:password@localhost/dbname")
+
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
+
+Deployment
+
+Production Server
+Use Gunicorn with Uvicorn workers:
+
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+
+Docker Deployment
+Create a Dockerfile:
+
+FROM python:3.10-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+Best Practices
+
+1. Use Type Hints Everywhere
+2. Leverage Pydantic Models
+3. Implement Proper Error Handling
+4. Use Dependencies for Reusable Logic
+5. Add Comprehensive Tests
+6. Document Your API
+7. Implement Logging
+8. Use Environment Variables
+9. Version Your API
+10. Monitor Performance
+
+Conclusion
+
+FastAPI provides a modern, efficient way to build APIs in Python. Its automatic documentation, type safety, and high performance make it an excellent choice for production applications. By following these practices and patterns, you can build robust, scalable APIs that are easy to maintain and extend.
+
