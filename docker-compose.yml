@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # RAG API Service
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./chroma_db:/app/chroma_db
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Streamlit UI Service
+  rag-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-ui
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./ui:/app/ui
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run ui/app.py --server.port=8501 --server.address=0.0.0.0
+    depends_on:
+      - rag-api
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Ollama Service (Local LLM)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - rag-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local
+
